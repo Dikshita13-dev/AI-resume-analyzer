@@ -104,3 +104,8 @@ For a stable, shareable link (great for a resume/portfolio):
 - Support uploading multiple resumes and rank them against one job description
 - Cache analysis results to avoid repeated API calls
 - Add a classic NLP fallback (spaCy + embeddings) for offline/no-API-cost matching
+
+## Demo 
+<img width="943" height="500" alt="Screenshot 2026-11-16 041411" src="https://github.com/user-attachments/assets/e5025f55-7662-4245-b99b-93cb0f78fcfb" />
+Streamlit link - https://elixir-composite-waviness.ngrok-free.dev/
+
