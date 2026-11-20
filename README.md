@@ -1,111 +1,62 @@
-# 📄 AI Resume Analyzer
+# ResumeIQ — AI Resume Analyzer (Streamlit)
 
-An AI-powered web app that compares your resume against a job description and gives you an instant match score, skill gap breakdown, and concrete suggestions to improve your resume — powered by Groq's free LLM API.
+Upload a resume (PDF/DOCX), paste a job description, and get an AI match score with matched/missing skills, strengths, gaps and resume suggestions. Each visitor gets **10 free analyses**.
 
-## Features
+**Stack:** Streamlit · Groq API (free tier, `openai/gpt-oss-120b`) · pdfplumber · python-docx. **No database.**
 
-- Upload your resume as PDF, DOCX, or TXT
-- Paste in any job description
-- Get an AI-generated match score (0–100)
-- See matched skills vs. missing skills
-- Get a breakdown of your strengths and gaps
-- Receive concrete, actionable suggestions to improve your resume for that specific role
+## Deploy on Streamlit Community Cloud
 
-## Tech Stack
+1. Create a GitHub repo and upload everything in this folder (keep the structure):
+   ```
+   app.py
+   analyzer.py
+   limiter.py
+   requirements.txt
+   README.md
+   .gitignore
+   .streamlit/config.toml
+   .streamlit/secrets.toml.example
+   ```
+   **Never upload `.streamlit/secrets.toml` or a `.env` file** (they're in `.gitignore`).
+2. Go to https://share.streamlit.io → **Create app** → pick the repo, branch `main`, main file `app.py`.
+3. Open **Advanced settings → Secrets** and paste:
+   ```toml
+   GROQ_API_KEY = "your_key_from_console.groq.com"
+   ```
+4. Deploy. Get a free key at https://console.groq.com/keys.
 
-- **Frontend/UI:** Streamlit
-- **Text extraction:** pdfplumber (PDF), python-docx (DOCX)
-- **AI analysis:** Groq API running `openai/gpt-oss-120b`
-- **Language:** Python
-
-## How It Works
-
-1. The app extracts raw text from your uploaded resume file
-2. That text, along with the job description, is sent to an LLM via the Groq API with a structured prompt
-3. The model returns a JSON response containing the match score, matched/missing skills, strengths, gaps, and improvement suggestions
-4. Streamlit renders the results in a clean, readable layout
-
-## Getting a Free Groq API Key
-
-Sign up at [console.groq.com/keys](https://console.groq.com/keys) — no credit card required. The free tier is sufficient for personal projects and demos.
-
----
-
-## Option 1: Run Locally
-
-### 1. Clone the repo
-
-```bash
-git clone https://github.com/your-username/ai-resume-analyzer.git
-cd ai-resume-analyzer
-```
-
-### 2. Install dependencies
+## Run locally
 
 ```bash
 pip install -r requirements.txt
-```
-
-### 3. Set your API key as an environment variable
-
-```bash
-export GROQ_API_KEY="your-key-here"   # macOS/Linux
-set GROQ_API_KEY="your-key-here"      # Windows (cmd)
-```
-
-### 4. Run the app
-
-```bash
+cp .streamlit/secrets.toml.example .streamlit/secrets.toml   # add your key
 streamlit run app.py
 ```
 
-The app will open in your browser at `http://localhost:8501`.
+## How the 10-use limit works (no DB)
 
----
+Streamlit can't set cookies, so visitors are identified by IP (`X-Forwarded-For`, which Streamlit Cloud provides) and counted in an in-memory limiter shared by all sessions.
 
-## Option 2: Run in Google Colab (via ngrok)
+- Refreshing the page does **not** reset the count.
+- Counts reset when the app restarts/sleeps (free apps sleep when idle).
+- Visitors behind the same IP (office/campus Wi-Fi) share the 10; a VPN gets a fresh 10.
+- Failed analyses are refunded, not counted.
 
-A ready-to-use notebook (`AI_Resume_Analyzer_ngrok_Colab.ipynb`) is included that runs the same app inside Google Colab and exposes it via a public URL — no local installation required.
+For a hard guarantee you'd add login + a database (e.g. Supabase/SQLite) — a good "next steps" answer in interviews. Change the limit with the `MAX_ANALYSES` secret.
 
-1. Open the notebook in Colab
-2. Run the install cell
-3. Enter your Groq API key when prompted (kept private via `getpass`)
-4. Enter a free [ngrok authtoken](https://dashboard.ngrok.com/get-started/your-authtoken) when prompted
-5. Run the launch cell — it prints a public `https://....ngrok-free.app` link
-6. Open the link and use the app
+## Security notes
 
----
+- Server-side validation: extension + magic bytes, 5 MB cap, 10-page PDF cap, text length caps.
+- Files are processed in memory, never written to disk.
+- Prompt-injection hardening: resume/JD wrapped in tags and treated as data; model output is validated and clamped.
+- All model/user text is HTML-escaped before display.
+- API key lives only in Streamlit Secrets.
 
-## Option 3: Deploy on Streamlit Community Cloud (permanent link)
+## Interview talking points
 
-For a stable, shareable link (great for a resume/portfolio):
-
-1. Push this repo to GitHub
-2. Go to [streamlit.io/cloud](https://streamlit.io/cloud) and connect your repo
-3. Add `GROQ_API_KEY` as a secret in the app's settings
-4. Deploy — you'll get a permanent `https://yourapp.streamlit.app` URL
-
----
-
-## Usage
-
-1. Upload your resume (PDF, DOCX, or TXT)
-2. Paste the job description into the text box
-3. Click **Analyze Match**
-4. Review your match score, skill gaps, and suggestions
-
-## Notes
-
-- Your API key is never hardcoded or stored — it's read from an environment variable at runtime.
-- Model used: `openai/gpt-oss-120b` (Groq's recommended model, replacing the deprecated Llama 3.3 70B).
-
-## Possible Extensions
-
-- Support uploading multiple resumes and rank them against one job description
-- Cache analysis results to avoid repeated API calls
-- Add a classic NLP fallback (spaCy + embeddings) for offline/no-API-cost matching
-
-## Demo 
-<img width="943" height="500" alt="Screenshot 2026-11-16 041411" src="https://github.com/user-attachments/assets/e5025f55-7662-4245-b99b-93cb0f78fcfb" />
-Streamlit link - https://elixir-composite-waviness.ngrok-free.dev/
-
+- **Pipeline:** upload → extract text → prompt LLM for strict JSON → validate/normalize → render.
+- **Structure:** `analyzer.py` (pure logic) and `limiter.py` are framework-free and unit-testable; `app.py` is only UI.
+- **JSON mode + fallback:** structured output is requested, but the parser tolerates fences/preamble and retries without optional params.
+- **Reasoning-model budget:** `gpt-oss` spends tokens thinking, so `max_tokens=4000`, `reasoning_effort=low`.
+- **Trade-offs:** IP-based in-memory limiter vs. accounts + DB.
+- **Extensions:** ATS keyword density, bullet-by-bullet rewrites, OCR for scanned PDFs, caching by file hash.
