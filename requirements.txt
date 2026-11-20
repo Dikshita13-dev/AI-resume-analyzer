@@ -1,5 +1,0 @@
-streamlit
-groq
-pdfplumber
-python-docx
-pyngrok
